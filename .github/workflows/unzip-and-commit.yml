@@ -32,16 +32,17 @@ jobs:
 
           # Si el zip trae todo dentro de una única carpeta raíz
           # (ej. smw-project/...), la "aplanamos" hacia la raíz del repo.
+          # Usamos cp -r (no mv) porque el repo ya puede tener carpetas
+          # como .github/workflows/ con contenido (este mismo workflow),
+          # y mv falla si el destino no está vacío. cp -r fusiona.
           ENTRIES=$(ls _extracted)
           ENTRY_COUNT=$(echo "$ENTRIES" | wc -l)
 
           if [ "$ENTRY_COUNT" -eq 1 ] && [ -d "_extracted/$ENTRIES" ]; then
             echo "Aplanando carpeta raíz: $ENTRIES"
-            shopt -s dotglob
-            mv "_extracted/$ENTRIES"/* .
+            cp -r "_extracted/$ENTRIES"/. .
           else
-            shopt -s dotglob
-            mv _extracted/* .
+            cp -r _extracted/. .
           fi
 
           rm -rf _extracted
