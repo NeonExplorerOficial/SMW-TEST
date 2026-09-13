@@ -1,0 +1,60 @@
+name: Unzip and commit
+
+# Se dispara cada vez que subas/cambies un .zip en la raíz del repo.
+on:
+  push:
+    paths:
+      - "*.zip"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Descomprimir el primer .zip encontrado
+        run: |
+          set -e
+          ZIP_FILE=$(ls *.zip | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No se encontró ningún .zip en la raíz, nada que hacer."
+            exit 0
+          fi
+          echo "Descomprimiendo: $ZIP_FILE"
+
+          mkdir -p _extracted
+          unzip -o "$ZIP_FILE" -d _extracted
+
+          # Si el zip trae todo dentro de una única carpeta raíz
+          # (ej. smw-project/...), la "aplanamos" hacia la raíz del repo.
+          ENTRIES=$(ls _extracted)
+          ENTRY_COUNT=$(echo "$ENTRIES" | wc -l)
+
+          if [ "$ENTRY_COUNT" -eq 1 ] && [ -d "_extracted/$ENTRIES" ]; then
+            echo "Aplanando carpeta raíz: $ENTRIES"
+            shopt -s dotglob
+            mv "_extracted/$ENTRIES"/* .
+          else
+            shopt -s dotglob
+            mv _extracted/* .
+          fi
+
+          rm -rf _extracted
+          rm -f "$ZIP_FILE"
+
+      - name: Commit y push de los archivos descomprimidos
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No hay cambios que commitear."
+          else
+            git commit -m "Auto: descomprimir zip subido"
+            git push
+          fi
